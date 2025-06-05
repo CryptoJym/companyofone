@@ -50,4 +50,10 @@ export { FAQ } from './sections/FAQ';
 export type { FAQProps, FAQItem } from './sections/FAQ';
 
 export { FinalCTA } from './sections/FinalCTA';
-export type { FinalCTAProps } from './sections/FinalCTA'; 
+export type { FinalCTAProps } from './sections/FinalCTA';
+
+export { ConsultationSection } from './sections/ConsultationSection';
+
+// Form Components
+export { ContactForm } from './forms/ContactForm';
+export { ConsultationForm } from './forms/ConsultationForm'; 
