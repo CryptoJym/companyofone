@@ -2,117 +2,128 @@
 
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { useScrollAnimation, animationVariants } from '@/lib/useScrollAnimation';
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'bordered' | 'elevated' | 'interactive';
-  padding?: 'none' | 'sm' | 'md' | 'lg' | 'xl';
+  variant?: 'default' | 'outlined' | 'elevated' | 'glass';
+  size?: 'sm' | 'md' | 'lg';
+  padding?: 'sm' | 'md' | 'lg';
+  hoverable?: boolean;
+  animated?: boolean;
+  delay?: number;
   children: React.ReactNode;
 }
 
-const cardVariants = {
-  default: 'bg-white',
-  bordered: 'bg-white border border-utlyze-gray-200',
-  elevated: 'bg-white shadow-lg',
-  interactive: 'bg-white border border-utlyze-gray-200 hover:shadow-lg transition-shadow duration-200 cursor-pointer'
+const cardVariants: Record<NonNullable<CardProps['variant']>, string> = {
+  default: 'bg-white border border-gray-200',
+  outlined: 'bg-transparent border-2 border-gray-300',
+  elevated: 'bg-white shadow-lg border-0',
+  glass: 'bg-white/80 backdrop-blur-sm border border-white/20'
 };
 
-const cardPadding = {
-  none: '',
+const cardSizes: Record<NonNullable<CardProps['size']>, string> = {
+  sm: 'max-w-sm',
+  md: 'max-w-md',
+  lg: 'max-w-lg'
+};
+
+const cardPadding: Record<NonNullable<CardProps['padding']>, string> = {
   sm: 'p-4',
   md: 'p-6',
-  lg: 'p-8',
-  xl: 'p-10'
+  lg: 'p-8'
 };
 
-export const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ variant = 'default', padding = 'md', className, children, ...props }, ref) => {
-    return (
-      <div
-        ref={ref}
-        className={cn(
-          'rounded-xl overflow-hidden',
-          cardVariants[variant],
-          cardPadding[padding],
-          className
-        )}
-        {...props}
-      >
+export const Card: React.FC<CardProps> = ({
+  variant = 'default',
+  size,
+  padding = 'md',
+  hoverable = true,
+  animated = true,
+  delay = 0,
+  className,
+  children,
+  ...props
+}) => {
+  const { elementRef, isVisible } = useScrollAnimation({ 
+    delay: animated ? delay : 0,
+    triggerOnce: true 
+  });
+
+  return (
+    <div
+      ref={animated ? elementRef : null}
+      className={cn(
+        'rounded-xl transition-all duration-300 ease-out group relative',
+        cardVariants[variant as keyof typeof cardVariants],
+        cardPadding[padding as keyof typeof cardPadding],
+        size && cardSizes[size as keyof typeof cardSizes],
+        hoverable && [
+          'hover:shadow-xl hover:-translate-y-1',
+          'cursor-pointer',
+          variant === 'glass' && 'hover:bg-white/90',
+          variant === 'elevated' && 'hover:shadow-2xl',
+          variant === 'outlined' && 'hover:border-primary hover:shadow-lg',
+        ],
+        animated && (isVisible ? animationVariants.fadeInUpVisible : animationVariants.fadeInUp),
+        className
+      )}
+      {...props}
+    >
+      {/* Subtle gradient overlay on hover */}
+      {hoverable && (
+        <div className="absolute inset-0 bg-gradient-to-br from-primary-50/0 to-accent-50/0 group-hover:from-primary-50/30 group-hover:to-accent-50/20 rounded-xl transition-all duration-300 pointer-events-none" />
+      )}
+      
+      <div className="relative z-10">
         {children}
       </div>
-    );
-  }
-);
+    </div>
+  );
+};
 
-Card.displayName = 'Card';
+export interface CardHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
+}
 
-// Card subcomponents
-export const CardHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
+export const CardHeader: React.FC<CardHeaderProps> = ({
   className,
   children,
   ...props
 }) => {
   return (
-    <div
-      className={cn('mb-4 pb-4 border-b border-utlyze-gray-100', className)}
-      {...props}
-    >
+    <div className={cn('mb-4', className)} {...props}>
       {children}
     </div>
   );
 };
 
-export const CardTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({
-  className,
-  children,
-  ...props
-}) => {
-  return (
-    <h3
-      className={cn('text-2xl font-bold text-utlyze-gray-900', className)}
-      {...props}
-    >
-      {children}
-    </h3>
-  );
-};
+export interface CardContentProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
+}
 
-export const CardDescription: React.FC<React.HTMLAttributes<HTMLParagraphElement>> = ({
+export const CardContent: React.FC<CardContentProps> = ({
   className,
   children,
   ...props
 }) => {
   return (
-    <p
-      className={cn('text-utlyze-gray-600 mt-1', className)}
-      {...props}
-    >
-      {children}
-    </p>
-  );
-};
-
-export const CardContent: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
-  className,
-  children,
-  ...props
-}) => {
-  return (
-    <div className={cn('', className)} {...props}>
+    <div className={cn('space-y-4', className)} {...props}>
       {children}
     </div>
   );
 };
 
-export const CardFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
+export interface CardFooterProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
+}
+
+export const CardFooter: React.FC<CardFooterProps> = ({
   className,
   children,
   ...props
 }) => {
   return (
-    <div
-      className={cn('mt-6 pt-4 border-t border-utlyze-gray-100', className)}
-      {...props}
-    >
+    <div className={cn('mt-6 pt-4 border-t border-gray-100', className)} {...props}>
       {children}
     </div>
   );
