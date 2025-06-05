@@ -31,7 +31,7 @@
     "tailwindcss": "^3.4.0",
     "autoprefixer": "^10.4.0",
     "postcss": "^8.4.0",
-    "@testing-library/react": "^14.1.2",
+    "@testing-library/react": "^16.0.0",
     "@testing-library/jest-dom": "^6.1.5",
     "@testing-library/user-event": "^14.5.1",
     "@testing-library/dom": "^9.3.3",
@@ -40,8 +40,6 @@
     "ts-jest": "^29.1.1",
     "@types/jest": "^29.5.11",
     "jest-watch-typeahead": "^2.2.2",
-    "@next/jest": "^15.1.4",
-    "msw": "^2.0.11",
-    "@types/testing-library__jest-dom": "^6.0.0"
+    "msw": "^2.0.11"
   }
 }
