@@ -73,7 +73,13 @@ const TASK_REGISTRY = {
     estimatedHours: 4,
     priority: 'CRITICAL',
     prompt: `Build landing page for ${SITE_CONFIG.name}. Hero, pain points, solution, features, testimonials, CTAs. Multiple consultation CTAs.`,
-    completionCheck: () => fs.existsSync('frontend/src/app/page.tsx')
+    completionCheck: () => {
+      // Check if actual landing page content exists, not just default Next.js page
+      const pagePath = 'frontend/app/page.tsx';
+      if (!fs.existsSync(pagePath)) return false;
+      const content = fs.readFileSync(pagePath, 'utf8');
+      return content.includes('Company of One') || content.includes('Solopreneur');
+    }
   },
 
   // Backend Tasks
@@ -85,6 +91,83 @@ const TASK_REGISTRY = {
     priority: 'HIGH',
     prompt: 'Standard Express.js API setup with TypeScript. Vercel-ready.',
     completionCheck: () => fs.existsSync('backend/src/api/server.ts')
+  },
+
+  // Integration Tasks
+  'api-integration': {
+    id: 'api-integration',
+    name: 'Frontend-Backend Integration',
+    dependencies: ['landing-page', 'api-setup'],
+    estimatedHours: 3,
+    priority: 'HIGH',
+    prompt: 'Connect frontend forms to backend API. Implement contact form submission, newsletter signup, and consultation booking. Add proper error handling and loading states.',
+    completionCheck: () => fs.existsSync('frontend/src/services/api.ts')
+  },
+
+  // SEO & Performance Tasks
+  'seo-optimization': {
+    id: 'seo-optimization',
+    name: 'SEO & Meta Tags Implementation',
+    dependencies: ['landing-page'],
+    estimatedHours: 3,
+    priority: 'HIGH',
+    prompt: 'Implement comprehensive SEO. Add meta tags, Open Graph, Twitter cards, structured data (JSON-LD), sitemap.xml, robots.txt. Optimize for "company of one", "solopreneur tools", "one person business".',
+    completionCheck: () => fs.existsSync('frontend/src/app/sitemap.ts')
+  },
+
+  // Testing Tasks
+  'testing-setup': {
+    id: 'testing-setup',
+    name: 'Testing Infrastructure',
+    dependencies: ['component-library'],
+    estimatedHours: 4,
+    priority: 'MEDIUM',
+    prompt: 'Set up Jest, React Testing Library, and Cypress. Write unit tests for components, integration tests for API endpoints, and E2E tests for critical user flows (contact form, CTA clicks).',
+    completionCheck: () => fs.existsSync('frontend/jest.config.js')
+  },
+
+  // DevOps Tasks
+  'devops-setup': {
+    id: 'devops-setup',
+    name: 'CI/CD & Monitoring Setup',
+    dependencies: ['landing-page'],
+    estimatedHours: 3,
+    priority: 'MEDIUM',
+    prompt: 'Configure GitHub Actions for CI/CD. Set up Vercel deployment, environment variables, preview deployments. Add Sentry for error tracking and Vercel Analytics.',
+    completionCheck: () => fs.existsSync('.github/workflows/ci.yml')
+  },
+
+  // Enhancement Tasks
+  'ui-enhancements': {
+    id: 'ui-enhancements',
+    name: 'UI Polish & Animations',
+    dependencies: ['landing-page'],
+    estimatedHours: 3,
+    priority: 'LOW',
+    prompt: 'Add Framer Motion animations, smooth scrolling, hover effects, loading skeletons, and micro-interactions. Implement dark mode toggle. Ensure all interactions feel premium.',
+    completionCheck: () => fs.existsSync('frontend/src/components/ui/AnimatedSection.tsx')
+  },
+
+  // Content Expansion Tasks
+  'blog-setup': {
+    id: 'blog-setup',
+    name: 'Blog Infrastructure',
+    dependencies: ['landing-page'],
+    estimatedHours: 4,
+    priority: 'MEDIUM',
+    prompt: 'Create blog using MDX. Set up blog listing page, individual post pages, categories, and tags. Use the blog post outlines from content strategy.',
+    completionCheck: () => fs.existsSync('frontend/src/app/blog/page.tsx')
+  },
+
+  // Analytics Tasks
+  'analytics-setup': {
+    id: 'analytics-setup',
+    name: 'Analytics & Tracking',
+    dependencies: ['landing-page'],
+    estimatedHours: 2,
+    priority: 'MEDIUM',
+    prompt: 'Implement Google Analytics 4, Facebook Pixel, and custom event tracking. Track form submissions, CTA clicks, scroll depth, and time on page. GDPR compliant with cookie consent.',
+    completionCheck: () => fs.existsSync('frontend/src/components/Analytics.tsx')
   },
 
   // Add more tasks as needed...
