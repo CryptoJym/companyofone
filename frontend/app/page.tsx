@@ -6,6 +6,7 @@ import {
   SocialProof,
   HowItWorks,
   Pricing,
+  ConsultationSection,
   FAQ,
   FinalCTA
 } from '@/components/index';
@@ -282,6 +283,9 @@ export default function Home() {
         plans={pricingPlans}
         guarantee="30-Day Money-Back Guarantee: If you don't save at least 10 hours in your first month, we'll refund every penny."
       />
+
+      {/* Consultation Section */}
+      <ConsultationSection />
 
       {/* FAQ Section */}
       <FAQ faqs={faqs} />
