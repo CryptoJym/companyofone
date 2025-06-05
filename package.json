@@ -20,7 +20,13 @@
     "type-check": "npm run type-check:frontend && npm run type-check:backend",
     "type-check:frontend": "cd frontend && npm run type-check",
     "type-check:backend": "cd backend && npm run type-check",
-    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install"
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "setup:monitoring": "./scripts/setup-monitoring.sh",
+    "setup:monitoring-only": "./scripts/setup-monitoring.sh --monitoring-only",
+    "monitoring:start": "docker-compose -f docker-compose.monitoring.yml up -d",
+    "monitoring:stop": "docker-compose -f docker-compose.monitoring.yml down",
+    "monitoring:logs": "docker-compose -f docker-compose.monitoring.yml logs -f",
+    "monitoring:restart": "npm run monitoring:stop && npm run monitoring:start"
   },
   "keywords": [
     "company",
