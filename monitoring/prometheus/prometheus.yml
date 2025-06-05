@@ -1,0 +1,80 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'company-of-one-monitor'
+
+rule_files:
+  - "alerts.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # cAdvisor for container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # Company of One Backend API
+  - job_name: 'company-of-one-api'
+    metrics_path: '/health/metrics'
+    scrape_interval: 30s
+    static_configs:
+      - targets: 
+          # Replace with your actual backend URLs
+          - 'host.docker.internal:3000'  # Local development
+          - 'your-backend-staging.vercel.app:443'  # Staging
+          - 'your-backend-prod.vercel.app:443'  # Production
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+
+  # Frontend health checks via blackbox exporter
+  - job_name: 'frontend-blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - 'http://localhost:3000'  # Local frontend
+          - 'https://your-frontend-staging.vercel.app'  # Staging
+          - 'https://your-frontend-prod.vercel.app'  # Production
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Backend API health checks via blackbox exporter
+  - job_name: 'backend-blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - 'http://localhost:3000/health'  # Local backend
+          - 'https://your-backend-staging.vercel.app/health'  # Staging
+          - 'https://your-backend-prod.vercel.app/health'  # Production
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
