@@ -8,7 +8,8 @@ import {
   Pricing,
   ConsultationSection,
   FAQ,
-  FinalCTA
+  FinalCTA,
+  AIBusinessAssistant
 } from '@/components/index';
 
 export default function Home() {
@@ -372,6 +373,9 @@ export default function Home() {
         trustBadges={trustBadges}
         finalTagline="Company of One: Where solopreneurs become empires."
       />
+
+      {/* AI Business Assistant - Floating */}
+      <AIBusinessAssistant />
     </main>
   );
 }
