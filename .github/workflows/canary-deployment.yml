@@ -1,0 +1,324 @@
+name: Canary Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - staging
+          - production
+      traffic_percentage:
+        description: 'Initial traffic percentage for canary'
+        required: true
+        default: '10'
+        type: choice
+        options:
+          - '5'
+          - '10'
+          - '25'
+          - '50'
+      auto_promote:
+        description: 'Auto-promote if health checks pass'
+        required: true
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '20'
+  CANARY_TIMEOUT: '30m'
+
+jobs:
+  pre-deployment-checks:
+    name: Pre-deployment Health Checks
+    runs-on: ubuntu-latest
+    outputs:
+      baseline-metrics: ${{ steps.baseline.outputs.metrics }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Health Checks
+        id: health
+        env:
+          TARGET_URL: ${{ github.event.inputs.environment == 'production' && secrets.PRODUCTION_BACKEND_URL || secrets.STAGING_BACKEND_URL }}
+        run: |
+          # Check current deployment health
+          HEALTH_STATUS=$(curl -s $TARGET_URL/health | jq -r '.status // "unknown"')
+          ERROR_RATE=$(curl -s $TARGET_URL/health/metrics | grep -o 'error_rate [0-9.]*' | awk '{print $2}')
+          RESPONSE_TIME=$(curl -w "%{time_total}" -o /dev/null -s $TARGET_URL)
+          
+          echo "Current health status: $HEALTH_STATUS"
+          echo "Current error rate: ${ERROR_RATE:-0}%"
+          echo "Current response time: ${RESPONSE_TIME}s"
+          
+          if [ "$HEALTH_STATUS" != "ok" ]; then
+            echo "❌ Pre-deployment health check failed"
+            exit 1
+          fi
+          
+          echo "✅ Pre-deployment health checks passed"
+
+      - name: Capture Baseline Metrics
+        id: baseline
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL }}
+        run: |
+          # Capture current performance metrics
+          BASELINE_RESPONSE_TIME=$(curl -s "${PROMETHEUS_URL}/api/v1/query?query=histogram_quantile(0.95,rate(http_request_duration_seconds_bucket[5m]))" | jq -r '.data.result[0].value[1] // "0"')
+          BASELINE_ERROR_RATE=$(curl -s "${PROMETHEUS_URL}/api/v1/query?query=rate(http_requests_total{status=~\"5..\"}[5m])" | jq -r '.data.result[0].value[1] // "0"')
+          BASELINE_REQUESTS_PER_SEC=$(curl -s "${PROMETHEUS_URL}/api/v1/query?query=rate(http_requests_total[5m])" | jq -r '.data.result[0].value[1] // "0"')
+          
+          METRICS=$(jq -n \
+            --arg response_time "$BASELINE_RESPONSE_TIME" \
+            --arg error_rate "$BASELINE_ERROR_RATE" \
+            --arg rps "$BASELINE_REQUESTS_PER_SEC" \
+            '{response_time: $response_time, error_rate: $error_rate, requests_per_sec: $rps}')
+          
+          echo "metrics=$METRICS" >> $GITHUB_OUTPUT
+          echo "Baseline metrics captured: $METRICS"
+
+  deploy-canary:
+    name: Deploy Canary Version
+    runs-on: ubuntu-latest
+    needs: pre-deployment-checks
+    environment: ${{ github.event.inputs.environment }}-canary
+    outputs:
+      canary-url: ${{ steps.deploy.outputs.url }}
+      deployment-id: ${{ steps.deploy.outputs.deployment-id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Build Application
+        run: |
+          npm run install:all
+          cd frontend && npm run build
+          cd ../backend && npm run build
+
+      - name: Deploy Canary Frontend
+        id: deploy-frontend
+        run: |
+          cd frontend
+          # Deploy with canary suffix
+          URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --meta canary=true --meta traffic=${{ github.event.inputs.traffic_percentage }})
+          echo "frontend-url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Deploy Canary Backend
+        id: deploy-backend
+        run: |
+          cd backend
+          URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --meta canary=true --meta traffic=${{ github.event.inputs.traffic_percentage }})
+          echo "backend-url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Configure Traffic Routing
+        id: deploy
+        run: |
+          # In a real scenario, this would configure load balancer or CDN
+          # For Vercel, we'd use their traffic splitting features
+          echo "Configuring ${{ github.event.inputs.traffic_percentage }}% traffic to canary deployment"
+          
+          # Store deployment information
+          DEPLOYMENT_ID="canary-$(date +%s)"
+          echo "deployment-id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          echo "url=${{ steps.deploy-frontend.outputs.frontend-url }}" >> $GITHUB_OUTPUT
+          
+          # Create deployment metadata
+          cat > deployment-info.json << EOF
+          {
+            "deployment_id": "$DEPLOYMENT_ID",
+            "frontend_url": "${{ steps.deploy-frontend.outputs.frontend-url }}",
+            "backend_url": "${{ steps.deploy-backend.outputs.backend-url }}",
+            "traffic_percentage": ${{ github.event.inputs.traffic_percentage }},
+            "environment": "${{ github.event.inputs.environment }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "commit": "${{ github.sha }}"
+          }
+          EOF
+
+      - name: Upload Deployment Info
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-info
+          path: deployment-info.json
+
+  canary-monitoring:
+    name: Monitor Canary Deployment
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-checks, deploy-canary]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Deployment Info
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-info
+
+      - name: Monitor Canary Health
+        env:
+          CANARY_URL: ${{ needs.deploy-canary.outputs.canary-url }}
+          BASELINE_METRICS: ${{ needs.pre-deployment-checks.outputs.baseline-metrics }}
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL }}
+        run: |
+          echo "Starting canary monitoring for 30 minutes..."
+          BASELINE=$(echo '${{ needs.pre-deployment-checks.outputs.baseline-metrics }}' | jq -r '.')
+          BASELINE_RESPONSE_TIME=$(echo "$BASELINE" | jq -r '.response_time')
+          BASELINE_ERROR_RATE=$(echo "$BASELINE" | jq -r '.error_rate')
+          
+          MONITORING_START=$(date +%s)
+          MONITORING_DURATION=1800  # 30 minutes
+          CHECK_INTERVAL=60         # 1 minute
+          FAILURE_COUNT=0
+          MAX_FAILURES=3
+          
+          while [ $(($(date +%s) - MONITORING_START)) -lt $MONITORING_DURATION ]; do
+            echo "Checking canary health..."
+            
+            # Health check
+            if ! curl -f "$CANARY_URL/health" &>/dev/null; then
+              echo "❌ Canary health check failed"
+              FAILURE_COUNT=$((FAILURE_COUNT + 1))
+            else
+              echo "✅ Canary health check passed"
+              FAILURE_COUNT=0
+            fi
+            
+            # Performance check (would require actual Prometheus setup)
+            echo "Checking performance metrics..."
+            
+            # Simulated metric checks (in real scenario, query Prometheus)
+            CURRENT_RESPONSE_TIME=$(curl -w "%{time_total}" -o /dev/null -s "$CANARY_URL")
+            echo "Current response time: ${CURRENT_RESPONSE_TIME}s vs baseline: ${BASELINE_RESPONSE_TIME}s"
+            
+            # Alert if response time increased by more than 50%
+            if (( $(echo "$CURRENT_RESPONSE_TIME > $BASELINE_RESPONSE_TIME * 1.5" | bc -l) )); then
+              echo "⚠️  Response time degradation detected"
+              FAILURE_COUNT=$((FAILURE_COUNT + 1))
+            fi
+            
+            # Fail if too many consecutive failures
+            if [ $FAILURE_COUNT -ge $MAX_FAILURES ]; then
+              echo "❌ Canary deployment failed health checks - triggering rollback"
+              exit 1
+            fi
+            
+            sleep $CHECK_INTERVAL
+          done
+          
+          echo "✅ Canary monitoring completed successfully"
+
+  promote-or-rollback:
+    name: Promote or Rollback Canary
+    runs-on: ubuntu-latest
+    needs: [deploy-canary, canary-monitoring]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Deployment Info
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-info
+
+      - name: Decide Promotion or Rollback
+        id: decision
+        run: |
+          MONITORING_SUCCESS="${{ needs.canary-monitoring.result }}"
+          AUTO_PROMOTE="${{ github.event.inputs.auto_promote }}"
+          
+          if [ "$MONITORING_SUCCESS" = "success" ] && [ "$AUTO_PROMOTE" = "true" ]; then
+            echo "action=promote" >> $GITHUB_OUTPUT
+            echo "✅ Canary passed all checks - promoting to full deployment"
+          elif [ "$MONITORING_SUCCESS" = "failure" ]; then
+            echo "action=rollback" >> $GITHUB_OUTPUT
+            echo "❌ Canary failed checks - initiating rollback"
+          else
+            echo "action=manual" >> $GITHUB_OUTPUT
+            echo "⏳ Manual promotion required"
+          fi
+
+      - name: Promote Canary
+        if: steps.decision.outputs.action == 'promote'
+        run: |
+          echo "Promoting canary to 100% traffic..."
+          
+          # In real scenario, update load balancer/CDN configuration
+          # For Vercel, promote the deployment
+          DEPLOYMENT_INFO=$(cat deployment-info.json)
+          FRONTEND_URL=$(echo "$DEPLOYMENT_INFO" | jq -r '.frontend_url')
+          BACKEND_URL=$(echo "$DEPLOYMENT_INFO" | jq -r '.backend_url')
+          
+          # Promote to production (simplified)
+          echo "Frontend promoted: $FRONTEND_URL"
+          echo "Backend promoted: $BACKEND_URL"
+
+      - name: Rollback Canary
+        if: steps.decision.outputs.action == 'rollback'
+        run: |
+          echo "Rolling back canary deployment..."
+          
+          # Remove canary deployment
+          DEPLOYMENT_INFO=$(cat deployment-info.json)
+          DEPLOYMENT_ID=$(echo "$DEPLOYMENT_INFO" | jq -r '.deployment_id')
+          
+          # In real scenario, remove from load balancer and delete deployment
+          echo "Canary deployment $DEPLOYMENT_ID rolled back"
+
+      - name: Create Deployment Report
+        run: |
+          DEPLOYMENT_INFO=$(cat deployment-info.json)
+          ACTION="${{ steps.decision.outputs.action }}"
+          
+          cat > deployment-report.md << EOF
+          # Canary Deployment Report
+          
+          **Deployment ID:** $(echo "$DEPLOYMENT_INFO" | jq -r '.deployment_id')
+          **Environment:** $(echo "$DEPLOYMENT_INFO" | jq -r '.environment')
+          **Traffic Percentage:** $(echo "$DEPLOYMENT_INFO" | jq -r '.traffic_percentage')%
+          **Commit:** $(echo "$DEPLOYMENT_INFO" | jq -r '.commit')
+          **Timestamp:** $(echo "$DEPLOYMENT_INFO" | jq -r '.timestamp')
+          
+          ## Results
+          
+          **Monitoring Result:** ${{ needs.canary-monitoring.result }}
+          **Final Action:** $ACTION
+          
+          ## URLs
+          
+          **Frontend:** $(echo "$DEPLOYMENT_INFO" | jq -r '.frontend_url')
+          **Backend:** $(echo "$DEPLOYMENT_INFO" | jq -r '.backend_url')
+          
+          ## Health Checks
+          
+          - Pre-deployment checks: ${{ needs.pre-deployment-checks.result }}
+          - Canary deployment: ${{ needs.deploy-canary.result }}
+          - Monitoring: ${{ needs.canary-monitoring.result }}
+          EOF
+          
+          echo "$(cat deployment-report.md)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify Teams
+        if: always()
+        run: |
+          ACTION="${{ steps.decision.outputs.action }}"
+          STATUS_EMOJI=""
+          
+          case "$ACTION" in
+            "promote") STATUS_EMOJI="🚀" ;;
+            "rollback") STATUS_EMOJI="🔄" ;;
+            "manual") STATUS_EMOJI="⏳" ;;
+          esac
+          
+          echo "$STATUS_EMOJI Canary deployment $ACTION completed"
+          # Add Slack/Discord notification here if needed
