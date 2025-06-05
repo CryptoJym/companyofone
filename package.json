@@ -8,7 +8,19 @@
     "dev": "cd frontend && npm run dev",
     "build": "cd frontend && npm run build",
     "test": "jest",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx"
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:frontend": "cd frontend && npm test",
+    "test:backend": "cd backend && npm test",
+    "test:all": "npm run test:frontend && npm run test:backend",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "type-check": "npm run type-check:frontend && npm run type-check:backend",
+    "type-check:frontend": "cd frontend && npm run type-check",
+    "type-check:backend": "cd backend && npm run type-check",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install"
   },
   "keywords": [
     "company",
@@ -23,6 +35,15 @@
     "@typescript-eslint/parser": "^6.19.0",
     "eslint": "^8.56.0",
     "jest": "^29.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "@playwright/test": "^1.40.1",
+    "@jest/types": "^29.6.3",
+    "jest-environment-jsdom": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "prettier": "^3.1.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.2",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0"
   }
 }
