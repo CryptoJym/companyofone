@@ -1,0 +1,20 @@
+{
+  "name": "companyofone",
+  "version": "1.0.0",
+  "description": "The solopreneur success hub",
+  "scripts": {
+    "orchestrate": "node scripts/agent-orchestrator.js",
+    "background": "echo \"Background agent started with prompt:\" && echo $CURSOR_BACKGROUND_AGENT_PROMPT",
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "test": "jest",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx"
+  },
+  "keywords": [
+    "company",
+    "of",
+    "one"
+  ],
+  "author": "Utlyze",
+  "license": "MIT"
+}
