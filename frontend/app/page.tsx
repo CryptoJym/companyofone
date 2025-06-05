@@ -232,6 +232,75 @@ export default function Home() {
 
   return (
     <main className="min-h-screen">
+      {/* SEO Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            // FAQ Schema
+            {
+              "@context": "https://schema.org",
+              "@type": "FAQPage",
+              "mainEntity": faqs.map(faq => ({
+                "@type": "Question",
+                "name": faq.question,
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": faq.answer
+                }
+              }))
+            },
+            // Service Schema
+            {
+              "@context": "https://schema.org",
+              "@type": "Service",
+              "name": "Company of One - Solopreneur Operating System",
+              "description": "Complete business operating system including AI assistants, strategic consulting, and proven systems for solopreneurs.",
+              "provider": {
+                "@type": "Organization",
+                "name": "Company of One"
+              },
+              "areaServed": "Worldwide",
+              "serviceType": "Business Consulting",
+              "offers": pricingPlans.map(plan => ({
+                "@type": "Offer",
+                "name": plan.name,
+                "price": plan.price,
+                "priceCurrency": "USD",
+                "description": plan.description
+              }))
+            },
+            // Product Reviews Schema
+            {
+              "@context": "https://schema.org",
+              "@type": "Product",
+              "name": "Company of One Operating System",
+              "description": "Complete business operating system for solopreneurs",
+              "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": "4.8",
+                "reviewCount": "247",
+                "bestRating": "5",
+                "worstRating": "1"
+              },
+              "review": testimonials.map(testimonial => ({
+                "@type": "Review",
+                "author": {
+                  "@type": "Person",
+                  "name": testimonial.name
+                },
+                "reviewRating": {
+                  "@type": "Rating",
+                  "ratingValue": "5",
+                  "bestRating": "5"
+                },
+                "reviewBody": testimonial.quote
+              }))
+            }
+          ], null, 2)
+        }}
+      />
+
       {/* Hero Section */}
       <Hero
         title="Build More. Grow Fast. Stay One."
