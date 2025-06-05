@@ -10,6 +10,7 @@ import rateLimit from 'express-rate-limit';
 import { healthRouter } from '@routes/health';
 import { apiRouter } from '@routes/api';
 import { contactRouter } from '@routes/contact';
+import { blogRouter } from '@routes/blog';
 
 // Import middleware
 import { errorHandler } from '@middleware/errorHandler';
@@ -73,6 +74,7 @@ app.use(requestValidator);
 app.use('/health', healthRouter);
 app.use('/api/v1', apiRouter);
 app.use('/api/v1/contact', contactRouter);
+app.use('/api/v1/blog', blogRouter);
 
 // Root route
 app.get('/', (req: Request, res: Response) => {
@@ -83,6 +85,7 @@ app.get('/', (req: Request, res: Response) => {
       health: '/health',
       api: '/api/v1',
       contact: '/api/v1/contact',
+      blog: '/api/v1/blog',
     },
   });
 });
