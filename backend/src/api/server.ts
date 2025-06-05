@@ -5,6 +5,7 @@ import compression from 'compression';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
+import analyticsRouter from '../routes/analytics';
 
 // Import routes
 import { healthRouter } from '@routes/health';
@@ -74,6 +75,8 @@ app.use(requestValidator);
 app.use('/health', healthRouter);
 app.use('/api/v1', apiRouter);
 app.use('/api/v1/contact', contactRouter);
+app.use('/api/analytics', analyticsRouter);
+
 app.use('/api/v1/blog', blogRouter);
 
 // Root route
