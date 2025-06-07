@@ -1,40 +1,51 @@
 #!/bin/bash
 
-# Development script to start both frontend and backend
-echo "🚀 Starting Company of One development environment..."
+# Company of One - Development Script
+# Starts both frontend and backend concurrently
 
-# Function to kill all background processes on exit
+echo "🚀 Starting Company of One Development Environment..."
+
+# Function to cleanup background processes
 cleanup() {
-    echo "🛑 Stopping development servers..."
-    jobs -p | xargs -r kill
-    exit
+    echo ""
+    echo "🛑 Shutting down development servers..."
+    kill %1 %2 2>/dev/null || true
+    exit 0
 }
 
-# Set up signal handlers
-trap cleanup SIGINT SIGTERM
+# Trap CTRL+C
+trap cleanup SIGINT
 
-# Start backend server
-echo "📡 Starting backend server on port 3001..."
+# Check if .env files exist
+if [ ! -f "frontend/.env" ]; then
+    echo "⚠️  Frontend .env file not found. Creating from .env.example..."
+    cp frontend/.env.example frontend/.env
+fi
+
+if [ ! -f "backend/.env" ]; then
+    echo "⚠️  Backend .env file not found. Creating from .env.example..."
+    cp backend/.env.example backend/.env
+fi
+
+# Start backend
+echo "� Starting backend on port 3001..."
 cd backend && npm run dev &
-BACKEND_PID=$!
 
 # Wait a moment for backend to start
-sleep 3
+sleep 2
 
-# Start frontend server
-echo "🎨 Starting frontend server on port 3000..."
+# Start frontend
+echo "🎨 Starting frontend on port 3000..."
 cd ../frontend && npm run dev &
-FRONTEND_PID=$!
 
-# Display information
 echo ""
-echo "✅ Development environment is running!"
-echo "📡 Backend API: http://localhost:3001"
-echo "🎨 Frontend App: http://localhost:3000"
-echo "📊 API Health Check: http://localhost:3001/health"
-echo "📋 API Documentation: http://localhost:3001/api/v1"
+echo "✅ Development servers started!"
 echo ""
-echo "Press Ctrl+C to stop all servers"
+echo "📍 Frontend: http://localhost:3000"
+echo "� Backend:  http://localhost:3001"
+echo "� Health:   http://localhost:3001/health"
+echo ""
+echo "Press CTRL+C to stop all servers"
 
 # Wait for background processes
 wait
