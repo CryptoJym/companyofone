@@ -7,6 +7,15 @@ const nextConfig: NextConfig = {
   },
   // Vercel deployment optimizations
   output: 'standalone',
+  // API rewrites for backend integration
+  async rewrites() {
+    return [
+      {
+        source: '/api/v1/ai-assistant/:path*',
+        destination: 'http://localhost:3001/api/v1/ai-assistant/:path*'
+      }
+    ]
+  },
   // SEO optimizations
   async headers() {
     return [
