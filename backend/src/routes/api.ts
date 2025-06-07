@@ -1,6 +1,42 @@
 import { Router, Request, Response } from 'express';
+import { body, validationResult } from 'express-validator';
 
 export const apiRouter = Router();
+
+// Validation middleware
+const handleValidationErrors = (req: Request, res: Response, next: any) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      errors: errors.array(),
+    });
+  }
+  next();
+};
+
+// Consultation form validation rules
+const consultationValidation = [
+  body('name')
+    .trim()
+    .notEmpty().withMessage('Name is required')
+    .isLength({ min: 2, max: 100 }).withMessage('Name must be between 2 and 100 characters'),
+  body('email')
+    .trim()
+    .notEmpty().withMessage('Email is required')
+    .isEmail().withMessage('Please provide a valid email address')
+    .normalizeEmail(),
+  body('businessType')
+    .trim()
+    .notEmpty().withMessage('Business type is required')
+    .isIn(['solopreneur', 'freelancer', 'consultant', 'small-business', 'other'])
+    .withMessage('Invalid business type'),
+  body('message')
+    .trim()
+    .notEmpty().withMessage('Message is required')
+    .isLength({ min: 10, max: 2000 }).withMessage('Message must be between 10 and 2000 characters'),
+];
 
 // API info endpoint
 apiRouter.get('/', (req: Request, res: Response) => {
@@ -14,31 +50,41 @@ apiRouter.get('/', (req: Request, res: Response) => {
       consultation: '/api/v1/consultation',
       resources: '/api/v1/resources',
       tools: '/api/v1/tools',
+      blog: '/api/v1/blog',
     },
   });
 });
 
-// Consultation booking endpoint placeholder
-apiRouter.post('/consultation', (req: Request, res: Response) => {
+// Consultation booking endpoint
+apiRouter.post('/consultation', consultationValidation, handleValidationErrors, async (req: Request, res: Response) => {
   const { name, email, businessType, message } = req.body;
   
-  // TODO: Implement consultation booking logic
-  // - Validate input
-  // - Save to database
-  // - Send confirmation email
-  // - Create calendar event
-  
-  res.status(201).json({
-    success: true,
-    message: 'Consultation request received',
-    data: {
-      confirmationId: `CONS-${Date.now()}`,
-      name,
-      email,
-      businessType,
-      status: 'pending',
-    },
-  });
+  try {
+    // TODO: Implement consultation booking logic
+    // - Save to database
+    // - Send confirmation email
+    // - Create calendar event
+    // - Add to CRM
+    
+    res.status(201).json({
+      success: true,
+      message: 'Thank you for your consultation request! We\'ll contact you within 24 hours to schedule your free session.',
+      data: {
+        confirmationId: `CONS-${Date.now()}`,
+        name,
+        email,
+        businessType,
+        status: 'pending',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Consultation form error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process consultation request. Please try again later.',
+    });
+  }
 });
 
 // Resources endpoint placeholder
