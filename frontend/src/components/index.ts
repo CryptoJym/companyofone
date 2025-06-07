@@ -56,4 +56,8 @@ export { ConsultationSection } from './sections/ConsultationSection';
 
 // Form Components
 export { ContactForm } from './forms/ContactForm';
-export { ConsultationForm } from './forms/ConsultationForm'; 
+export { ConsultationForm } from './forms/ConsultationForm';
+
+// AI Components
+export { AIBusinessAssistant } from './ai/AIBusinessAssistant';
+export type { ChatMessage, BusinessCategory } from './ai/AIBusinessAssistant'; 
