@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { body, query, param, validationResult } from 'express-validator';
 import { blogService } from '../services/blogService';
+import { blogAuthMiddleware } from '../middleware/auth';
+import { blogRateLimit, blogWriteRateLimit, blogSearchRateLimit } from '../middleware/rateLimiter';
 import { 
   BlogQueryParams, 
   CreateBlogPostRequest, 
@@ -8,6 +10,12 @@ import {
 } from '../types/blog';
 
 export const blogRouter = Router();
+
+// Apply rate limiting to all blog routes
+blogRouter.use(blogRateLimit);
+
+// Apply authentication middleware to all routes (it will only check for write operations)
+blogRouter.use(blogAuthMiddleware);
 
 // Validation middleware
 const handleValidationErrors = (req: Request, res: Response, next: any) => {
@@ -24,6 +32,7 @@ const handleValidationErrors = (req: Request, res: Response, next: any) => {
 
 // GET /blog - Get all blog posts with filtering and pagination
 blogRouter.get('/', [
+  blogSearchRateLimit, // Apply search rate limiting
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 50 }),
   query('category').optional().isString(),
@@ -198,6 +207,7 @@ blogRouter.get('/slug/:slug', [
 
 // POST /blog - Create new blog post
 blogRouter.post('/', [
+  blogWriteRateLimit, // Apply write rate limiting
   body('title').isString().notEmpty().isLength({ min: 1, max: 200 }),
   body('content').isString().notEmpty().isLength({ min: 10 }),
   body('excerpt').optional().isString().isLength({ max: 500 }),
@@ -229,6 +239,7 @@ blogRouter.post('/', [
 
 // PUT /blog/:id - Update blog post
 blogRouter.put('/:id', [
+  blogWriteRateLimit, // Apply write rate limiting
   param('id').isString().notEmpty(),
   body('title').optional().isString().isLength({ min: 1, max: 200 }),
   body('content').optional().isString().isLength({ min: 10 }),
@@ -267,6 +278,7 @@ blogRouter.put('/:id', [
 
 // DELETE /blog/:id - Delete blog post
 blogRouter.delete('/:id', [
+  blogWriteRateLimit, // Apply write rate limiting
   param('id').isString().notEmpty(),
 ], handleValidationErrors, async (req: Request, res: Response) => {
   try {
