@@ -1,7 +1,5 @@
 // API client for backend communication
-
-// Configuration for API URL
-const API_URL = 'http://localhost:3001';
+import { config } from './config';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -29,7 +27,7 @@ class ApiClient {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = API_URL;
+    this.baseUrl = config.apiUrl;
   }
 
   private async request<T>(

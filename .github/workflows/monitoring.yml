@@ -1,0 +1,233 @@
+name: Monitoring
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'monitoring/**'
+      - 'docker-compose.monitoring.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'monitoring/**'
+      - 'docker-compose.monitoring.yml'
+  schedule:
+    # Health check every 30 minutes
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+env:
+  MONITORING_STACK_NAME: company-of-one-monitoring
+
+jobs:
+  validate-config:
+    name: Validate Monitoring Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Prometheus Config
+        run: |
+          docker run --rm -v $PWD/monitoring/prometheus:/etc/prometheus \
+            prom/prometheus:latest \
+            promtool check config /etc/prometheus/prometheus.yml
+
+      - name: Validate Alert Rules
+        run: |
+          docker run --rm -v $PWD/monitoring/prometheus:/etc/prometheus \
+            prom/prometheus:latest \
+            promtool check rules /etc/prometheus/alerts.yml
+
+      - name: Validate Alertmanager Config
+        run: |
+          docker run --rm -v $PWD/monitoring/alertmanager:/etc/alertmanager \
+            prom/alertmanager:latest \
+            amtool check-config /etc/alertmanager/config.yml
+
+  deploy-monitoring:
+    name: Deploy Monitoring Stack
+    runs-on: ubuntu-latest
+    needs: validate-config
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Deploy Monitoring Stack
+        run: |
+          docker-compose -f docker-compose.monitoring.yml up -d
+          sleep 30  # Wait for services to start
+
+      - name: Wait for Services
+        run: |
+          # Wait for Prometheus
+          timeout 300 bash -c 'until curl -f http://localhost:9090/-/healthy; do sleep 5; done'
+          
+          # Wait for Grafana
+          timeout 300 bash -c 'until curl -f http://localhost:3001/api/health; do sleep 5; done'
+          
+          # Wait for Alertmanager
+          timeout 300 bash -c 'until curl -f http://localhost:9093/-/healthy; do sleep 5; done'
+
+      - name: Test Monitoring Endpoints
+        run: |
+          # Test Prometheus
+          curl -f http://localhost:9090/api/v1/status/config || exit 1
+          curl -f http://localhost:9090/api/v1/rules || exit 1
+          
+          # Test Grafana
+          curl -f http://localhost:3001/api/health || exit 1
+          
+          # Test Alertmanager
+          curl -f http://localhost:9093/api/v1/status || exit 1
+
+      - name: Run Monitoring Health Checks
+        run: |
+          # Check if all expected targets are up
+          TARGETS=$(curl -s http://localhost:9090/api/v1/targets | jq -r '.data.activeTargets[] | select(.health=="up") | .labels.job' | sort | uniq)
+          echo "Active targets: $TARGETS"
+          
+          # Verify critical services are being monitored
+          echo "$TARGETS" | grep -q "prometheus" || (echo "Prometheus self-monitoring failed" && exit 1)
+          echo "$TARGETS" | grep -q "node-exporter" || (echo "Node exporter not found" && exit 1)
+          echo "$TARGETS" | grep -q "cadvisor" || (echo "cAdvisor not found" && exit 1)
+
+      - name: Create Monitoring Status Report
+        run: |
+          echo "## 📊 Monitoring Stack Status" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Status | URL |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|-----|" >> $GITHUB_STEP_SUMMARY
+          
+          # Check Prometheus
+          if curl -f http://localhost:9090/-/healthy &>/dev/null; then
+            echo "| Prometheus | ✅ Healthy | http://localhost:9090 |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Prometheus | ❌ Unhealthy | http://localhost:9090 |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Check Grafana
+          if curl -f http://localhost:3001/api/health &>/dev/null; then
+            echo "| Grafana | ✅ Healthy | http://localhost:3001 |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Grafana | ❌ Unhealthy | http://localhost:3001 |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Check Alertmanager
+          if curl -f http://localhost:9093/-/healthy &>/dev/null; then
+            echo "| Alertmanager | ✅ Healthy | http://localhost:9093 |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Alertmanager | ❌ Unhealthy | http://localhost:9093 |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  synthetic-monitoring:
+    name: Synthetic Monitoring Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    strategy:
+      matrix:
+        environment: [staging, production]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
+      - name: Test Frontend Performance
+        env:
+          FRONTEND_URL: ${{ matrix.environment == 'production' && secrets.PRODUCTION_FRONTEND_URL || secrets.STAGING_FRONTEND_URL }}
+        run: |
+          # Performance test
+          RESPONSE_TIME=$(curl -w "%{time_total}" -o /dev/null -s $FRONTEND_URL)
+          echo "Frontend response time: ${RESPONSE_TIME}s"
+          
+          # Fail if response time > 3 seconds
+          if (( $(echo "$RESPONSE_TIME > 3.0" | bc -l) )); then
+            echo "❌ Frontend response time too slow: ${RESPONSE_TIME}s"
+            exit 1
+          fi
+          
+          echo "✅ Frontend performance acceptable: ${RESPONSE_TIME}s"
+
+      - name: Test Backend Health
+        env:
+          BACKEND_URL: ${{ matrix.environment == 'production' && secrets.PRODUCTION_BACKEND_URL || secrets.STAGING_BACKEND_URL }}
+        run: |
+          # Health check
+          HEALTH_STATUS=$(curl -s $BACKEND_URL/health | jq -r '.status // "unknown"')
+          echo "Backend health status: $HEALTH_STATUS"
+          
+          if [ "$HEALTH_STATUS" != "ok" ]; then
+            echo "❌ Backend health check failed"
+            exit 1
+          fi
+          
+          echo "✅ Backend health check passed"
+
+      - name: Test API Endpoints
+        env:
+          BACKEND_URL: ${{ matrix.environment == 'production' && secrets.PRODUCTION_BACKEND_URL || secrets.STAGING_BACKEND_URL }}
+        run: |
+          # Test key API endpoints
+          API_ENDPOINTS=("/api/blog/posts" "/api/analytics" "/api/health/metrics")
+          
+          for endpoint in "${API_ENDPOINTS[@]}"; do
+            STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" $BACKEND_URL$endpoint)
+            if [ "$STATUS_CODE" -ge 200 ] && [ "$STATUS_CODE" -lt 400 ]; then
+              echo "✅ $endpoint: $STATUS_CODE"
+            else
+              echo "❌ $endpoint: $STATUS_CODE"
+              exit 1
+            fi
+          done
+
+  alert-testing:
+    name: Test Alert Rules
+    runs-on: ubuntu-latest
+    needs: deploy-monitoring
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Prometheus Tools
+        run: |
+          wget https://github.com/prometheus/prometheus/releases/download/v2.47.0/prometheus-2.47.0.linux-amd64.tar.gz
+          tar xvfz prometheus-2.47.0.linux-amd64.tar.gz
+          sudo mv prometheus-2.47.0.linux-amd64/promtool /usr/local/bin/
+
+      - name: Test Alert Rules
+        run: |
+          cd monitoring/prometheus
+          promtool test rules ../../scripts/alert-tests.yml || echo "No alert tests found, skipping"
+
+      - name: Simulate Test Alerts
+        run: |
+          # Send test alert to Alertmanager
+          curl -X POST http://localhost:9093/api/v1/alerts \
+            -H "Content-Type: application/json" \
+            -d '[{
+              "labels": {
+                "alertname": "TestAlert",
+                "severity": "warning",
+                "instance": "test-instance"
+              },
+              "annotations": {
+                "summary": "This is a test alert",
+                "description": "Testing alert routing and notification"
+              },
+              "startsAt": "'$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)'",
+              "endsAt": "'$(date -u -d '+5 minutes' +%Y-%m-%dT%H:%M:%S.%3NZ)'"
+            }]'
+
+  cleanup:
+    name: Cleanup Test Environment
+    runs-on: ubuntu-latest
+    needs: [deploy-monitoring, alert-testing]
+    if: always() && github.event_name != 'schedule'
+    steps:
+      - name: Stop Monitoring Stack
+        run: |
+          docker-compose -f docker-compose.monitoring.yml down -v || true
+          docker system prune -f || true

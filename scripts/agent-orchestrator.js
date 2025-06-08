@@ -170,6 +170,129 @@ const TASK_REGISTRY = {
     completionCheck: () => fs.existsSync('frontend/src/components/Analytics.tsx')
   },
 
+  // ========== PHASE 2: BUSINESS ACCELERATION TASKS ==========
+  
+  // Deployment & Infrastructure
+  'production-deployment': {
+    id: 'production-deployment',
+    name: 'Production Deployment & Optimization',
+    dependencies: ['devops-setup'],
+    estimatedHours: 4,
+    priority: 'CRITICAL',
+    prompt: `You are an elite DevOps engineer. Deploy Company of One to production on Vercel with: custom domain setup, SSL, CDN optimization, environment variables, preview deployments. Optimize build times, implement caching strategies, setup database if needed (Supabase/Planetscale). Configure auto-scaling and ensure 99.9% uptime. You know production deployment inside out - make this bulletproof.`,
+    completionCheck: () => fs.existsSync('.vercel/project.json')
+  },
+
+  // Email Automation System
+  'email-automation': {
+    id: 'email-automation',
+    name: 'Email Automation & Drip Campaigns',
+    dependencies: ['api-integration'],
+    estimatedHours: 5,
+    priority: 'HIGH',
+    prompt: `You are a marketing automation expert. Build a complete email automation system using SendGrid/Resend API. Implement: welcome series (5 emails), nurture sequence (10 emails), consultation booking follow-ups, abandoned form recovery. Create beautiful HTML email templates matching our design system. Set up triggers, delays, and smart segmentation. You understand conversion psychology - make these emails convert solopreneurs into clients.`,
+    completionCheck: () => fs.existsSync('backend/src/services/email-automation.ts')
+  },
+
+  // Lead Management Dashboard
+  'lead-dashboard': {
+    id: 'lead-dashboard',
+    name: 'Lead Management Dashboard',
+    dependencies: ['landing-page', 'api-integration'],
+    estimatedHours: 6,
+    priority: 'HIGH',
+    prompt: `You are a full-stack product engineer. Build a secure admin dashboard at /admin with authentication (NextAuth.js). Features: lead list with filters/search, lead details with timeline, consultation scheduling calendar, email history, conversion tracking, revenue analytics, export to CSV. Use our component library, make it beautiful and functional. You build products users love - make this dashboard indispensable for managing a solopreneur consultancy.`,
+    completionCheck: () => fs.existsSync('frontend/src/app/admin/page.tsx')
+  },
+
+  // Content Generation System
+  'content-engine': {
+    id: 'content-engine',
+    name: 'AI Content Generation Engine',
+    dependencies: ['blog-setup'],
+    estimatedHours: 5,
+    priority: 'MEDIUM',
+    prompt: `You are an AI systems architect. Build a content generation system that creates blog posts from our outlines. Integrate OpenAI API to generate full articles maintaining our brand voice. Features: outline-to-article generation, SEO optimization, automatic internal linking, image suggestions, social media posts generation. Create 5 initial blog posts. You understand both AI and content marketing - make this system produce content that ranks and converts.`,
+    completionCheck: () => fs.existsSync('backend/src/services/content-generator.ts')
+  },
+
+  // Performance & Security
+  'performance-security': {
+    id: 'performance-security',
+    name: 'Performance & Security Hardening',
+    dependencies: ['production-deployment'],
+    estimatedHours: 4,
+    priority: 'HIGH',
+    prompt: `You are a performance and security expert. Optimize Company of One for speed and security. Performance: implement lazy loading, code splitting, image optimization (WebP/AVIF), resource hints, service worker for offline. Target 100 Lighthouse score. Security: implement CSP headers, rate limiting, DDoS protection, input sanitization, OWASP best practices. You protect and accelerate - make this site fast and fortress-like.`,
+    completionCheck: () => fs.existsSync('frontend/public/sw.js')
+  },
+
+  // Conversion Optimization
+  'conversion-optimization': {
+    id: 'conversion-optimization',
+    name: 'Conversion Rate Optimization System',
+    dependencies: ['analytics-setup'],
+    estimatedHours: 4,
+    priority: 'HIGH',
+    prompt: `You are a CRO specialist and behavioral psychologist. Implement advanced conversion optimization: A/B testing framework (Optimizely/custom), heatmap tracking, session recordings integration, exit-intent popups, social proof notifications (recent signups), urgency/scarcity elements, personalization based on traffic source. You understand human decision-making - make every element drive conversions.`,
+    completionCheck: () => fs.existsSync('frontend/src/services/ab-testing.ts')
+  },
+
+  // Automation Workflows
+  'business-automation': {
+    id: 'business-automation',
+    name: 'Business Process Automation',
+    dependencies: ['lead-dashboard', 'email-automation'],
+    estimatedHours: 5,
+    priority: 'MEDIUM',
+    prompt: `You are a business automation architect. Build automated workflows: Zapier/Make.com webhooks, automated invoice generation (Stripe integration), consultation booking with Calendly/Cal.com API, CRM integration (Airtable/Notion API), automated social media posting, lead scoring system, automated follow-up sequences. You eliminate repetitive tasks - help solopreneurs focus on high-value work.`,
+    completionCheck: () => fs.existsSync('backend/src/services/automation-workflows.ts')
+  },
+
+  // Mobile & PWA
+  'mobile-pwa': {
+    id: 'mobile-pwa',
+    name: 'Mobile App & PWA Development',
+    dependencies: ['production-deployment'],
+    estimatedHours: 4,
+    priority: 'MEDIUM',
+    prompt: `You are a mobile development expert. Transform Company of One into a Progressive Web App. Implement: app manifest, offline functionality, push notifications, add-to-homescreen, mobile-specific UI optimizations, touch gestures, native app-like transitions. Consider React Native/Capacitor for app stores. You create delightful mobile experiences - make this feel native on every device.`,
+    completionCheck: () => fs.existsSync('frontend/public/manifest.json')
+  },
+
+  // Advanced Analytics Dashboard
+  'analytics-dashboard': {
+    id: 'analytics-dashboard',
+    name: 'Real-time Analytics Dashboard',
+    dependencies: ['analytics-setup', 'lead-dashboard'],
+    estimatedHours: 5,
+    priority: 'MEDIUM',
+    prompt: `You are a data visualization expert. Build a real-time analytics dashboard showing: visitor flow, conversion funnels, revenue metrics, content performance, traffic sources, user behavior cohorts, predictive analytics (churn risk, LTV). Use Chart.js/Recharts for beautiful visualizations. Implement WebSocket for real-time updates. You make data actionable - help solopreneurs make informed decisions.`,
+    completionCheck: () => fs.existsSync('frontend/src/app/admin/analytics/page.tsx')
+  },
+
+  // AI Assistant Integration
+  'ai-assistant': {
+    id: 'ai-assistant',
+    name: 'AI Business Assistant Integration',
+    dependencies: ['landing-page'],
+    estimatedHours: 6,
+    priority: 'HIGH',
+    prompt: `You are an AI integration specialist. Build an AI-powered business assistant chatbot. Features: answer visitor questions, qualify leads, book consultations, provide personalized recommendations, collect feedback. Use OpenAI/Anthropic API with RAG for business-specific knowledge. Beautiful chat UI with typing indicators, suggested responses. You create helpful AI experiences - make this assistant genuinely useful for solopreneurs and their clients.`,
+    completionCheck: () => fs.existsSync('frontend/src/components/AIAssistant.tsx')
+  },
+
+  // Scaling Infrastructure
+  'scaling-infrastructure': {
+    id: 'scaling-infrastructure',
+    name: 'Multi-tenant & Scaling Architecture',
+    dependencies: ['production-deployment', 'lead-dashboard'],
+    estimatedHours: 6,
+    priority: 'LOW',
+    prompt: `You are a scaling architect. Prepare Company of One for growth: implement multi-tenant architecture (multiple solopreneurs can use the platform), user authentication system, subscription billing (Stripe), usage-based limits, tenant isolation, data partitioning, horizontal scaling setup. You build for the future - make this platform ready to serve thousands of solopreneurs.`,
+    completionCheck: () => fs.existsSync('backend/src/services/multi-tenant.ts')
+  },
+
   // Add more tasks as needed...
 };
 

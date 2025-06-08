@@ -1,6 +1,7 @@
 import { BlogPost, BlogResponse, BlogCategory, BlogTag, BlogQueryParams, ApiResponse } from '@/types/blog';
+import { config } from './config';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+const API_BASE_URL = `${config.apiUrl}/api/v1`;
 
 class BlogApiService {
   private async fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {

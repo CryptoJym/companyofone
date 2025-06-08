@@ -115,4 +115,100 @@ export const animationVariants = {
   scaleInVisible: 'opacity-100 scale-100',
   slideInUp: 'translate-y-full transition-transform duration-800 ease-out',
   slideInUpVisible: 'translate-y-0',
+  // New enhanced variants
+  fadeInUpBounce: 'opacity-0 translate-y-12 transition-all duration-800 ease-bounce-in',
+  fadeInUpBounceVisible: 'opacity-100 translate-y-0',
+  scaleInBounce: 'opacity-0 scale-90 transition-all duration-700 ease-bounce-in',
+  scaleInBounceVisible: 'opacity-100 scale-100',
+  slideInFromBottom: 'opacity-0 translate-y-16 transition-all duration-900 ease-out',
+  slideInFromBottomVisible: 'opacity-100 translate-y-0',
+  flipIn: 'opacity-0 rotateY-90 perspective-1000 transition-all duration-700 ease-out',
+  flipInVisible: 'opacity-100 rotateY-0',
+  zoomIn: 'opacity-0 scale-75 transition-all duration-500 ease-out',
+  zoomInVisible: 'opacity-100 scale-100',
+  blurIn: 'opacity-0 blur-sm transition-all duration-600 ease-out',
+  blurInVisible: 'opacity-100 blur-0',
+};
+
+// New hooks for advanced animations
+export const useParallaxScroll = (speed: number = 0.5) => {
+  const [offsetY, setOffsetY] = useState(0);
+  const elementRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (elementRef.current) {
+        const rect = elementRef.current.getBoundingClientRect();
+        const scrolled = window.pageYOffset;
+        const rate = scrolled * speed;
+        setOffsetY(rate);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [speed]);
+
+  return { elementRef, offsetY };
+};
+
+export const useCountUp = (
+  endValue: number,
+  duration: number = 2000,
+  startOnVisible: boolean = true
+) => {
+  const [currentValue, setCurrentValue] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const { elementRef, isVisible } = useScrollAnimation({ triggerOnce: true });
+
+  useEffect(() => {
+    if ((startOnVisible && isVisible) || (!startOnVisible && !isAnimating)) {
+      setIsAnimating(true);
+      let startTime: number;
+      
+      const animate = (timestamp: number) => {
+        if (!startTime) startTime = timestamp;
+        const progress = Math.min((timestamp - startTime) / duration, 1);
+        
+        // Easing function for smooth animation
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        setCurrentValue(Math.floor(endValue * easeOut));
+        
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          setIsAnimating(false);
+        }
+      };
+      
+      requestAnimationFrame(animate);
+    }
+  }, [isVisible, endValue, duration, startOnVisible, isAnimating]);
+
+  return { elementRef, currentValue, isAnimating };
+};
+
+export const useMouseParallax = (intensity: number = 0.1) => {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const elementRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (elementRef.current) {
+        const rect = elementRef.current.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        const deltaX = (e.clientX - centerX) * intensity;
+        const deltaY = (e.clientY - centerY) * intensity;
+        
+        setPosition({ x: deltaX, y: deltaY });
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [intensity]);
+
+  return { elementRef, position };
 };
